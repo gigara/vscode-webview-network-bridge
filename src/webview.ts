@@ -4,12 +4,54 @@
  */
 
 import type { ConnectionStatus, ProxyEnvelope, SocketAdapter, TransportMode } from './types';
+import type { VSCodeCssVariables } from './vscodeCssVariables';
+import { VSCODE_DARK_PLUS_CSS_VARIABLES, VSCODE_LIGHT_PLUS_CSS_VARIABLES } from './vscodeCssVariables';
 
 export type { ConnectionStatus, ProxyEnvelope, SocketAdapter, TransportMode } from './types';
+export {
+  VSCODE_DARK_PLUS_CSS_VARIABLES,
+  VSCODE_LIGHT_PLUS_CSS_VARIABLES
+} from './vscodeCssVariables';
+export type { VSCodeCssVariableName, VSCodeCssVariables } from './vscodeCssVariables';
 
 const DEFAULT_WS_SERVER = '127.0.0.1';
 const DEFAULT_WS_PORT = 8787;
 const VS_CODE_API_UNAVAILABLE_ERROR = 'VS Code API is not available.';
+
+export const DEFAULT_VSCODE_CSS_VARIABLES: VSCodeCssVariables = {
+  ...VSCODE_DARK_PLUS_CSS_VARIABLES
+};
+
+export type VSCodeCssTheme = 'dark' | 'light';
+
+/**
+ * Injects VS Code-style CSS custom properties into the current document.
+ *
+ * Useful when rendering the same webview app in a plain browser where VS Code
+ * does not auto-inject `--vscode-*` variables.
+ */
+export function injectVSCodeCssVariables(
+  overrides: VSCodeCssVariables = {},
+  target: HTMLElement = document.documentElement,
+  theme: VSCodeCssTheme = 'dark'
+) {
+  const themeDefaults = theme === 'light' ? VSCODE_LIGHT_PLUS_CSS_VARIABLES : VSCODE_DARK_PLUS_CSS_VARIABLES;
+
+  const variables = {
+    ...themeDefaults,
+    ...overrides
+  };
+
+  for (const [name, value] of Object.entries(variables)) {
+    if (value === undefined) {
+      continue;
+    }
+
+    target.style.setProperty(name, value);
+  }
+
+  return variables;
+}
 
 type WebSocketClientAdapterOptions<TRequest, TResponse> = {
   serialize?: (message: TRequest) => string;

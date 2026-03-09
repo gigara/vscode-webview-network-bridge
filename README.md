@@ -69,6 +69,41 @@ Import from `vscode-webview-network-bridge/webview`.
 - `getMode(): TransportMode`
 - `switchMode(mode: TransportMode): void`
 
+Browser runtime theming helper:
+
+- `injectVSCodeCssVariables(overrides?, target?, theme?)`
+- `VSCodeCssTheme` (`'dark' | 'light'`)
+- `DEFAULT_VSCODE_CSS_VARIABLES`
+- `VSCODE_DARK_PLUS_CSS_VARIABLES` (values from VS Code default Dark+ theme)
+- `VSCODE_LIGHT_PLUS_CSS_VARIABLES` (values from VS Code default Light+ theme)
+
+`injectVSCodeCssVariables` defaults to `theme = 'dark'` and uses `VSCODE_DARK_PLUS_CSS_VARIABLES` or
+`VSCODE_LIGHT_PLUS_CSS_VARIABLES` as base values before applying `overrides`.
+
+Theme value maps are generated from VS Code open-source default theme files:
+
+- Source file: `src/vscodeCssVariables.ts`
+- Refresh command: `npm run update:vscode-css-vars`
+- Sources: `dark_vs` + `dark_plus`, `light_vs` + `light_plus`
+
+Use this when running in a plain browser (`websocket` mode), where VS Code does not inject `--vscode-*` variables automatically.
+
+```ts
+import {
+  createWebviewTransportAdapter,
+  injectVSCodeCssVariables
+} from 'vscode-webview-network-bridge/webview';
+
+if ((window.__WS_MODE__ ?? 'proxy') === 'websocket') {
+  injectVSCodeCssVariables({
+    '--vscode-editor-background': '#1e1e1e'
+  }, document.documentElement, 'dark');
+
+  // Or use built-in Light+ defaults:
+  // injectVSCodeCssVariables({}, document.documentElement, 'light');
+}
+```
+
 ### Extension Entry
 
 Import from `vscode-webview-network-bridge/extension`.
