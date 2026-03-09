@@ -22,6 +22,12 @@ It also enables the same web application codebase to run in a standard browser w
 npm install vscode-webview-network-bridge
 ```
 
+## Sample Application
+
+For a complete end-to-end implementation (VS Code extension host + webview UI + browser mode), see:
+
+- https://github.com/gigara/vscode-ws-todo
+
 ## API
 
 ### Core Types
