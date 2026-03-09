@@ -5,13 +5,16 @@
 
 type ActionRequest = { action: string };
 
+type MaybePromise<T> = T | Promise<T>;
+type MaybeResponse<T> = T | void;
+
 type RequestHandler<TRequest extends ActionRequest, TResponse, TAction extends TRequest['action']> = (
   request: Extract<TRequest, { action: TAction }>
-) => TResponse;
+) => MaybePromise<MaybeResponse<TResponse>>;
 
 type RouterOptions<TRequest extends ActionRequest, TResponse> = {
   /** Optional fallback invoked when no handler is registered for `request.action`. */
-  onUnknownAction?: (request: TRequest) => TResponse;
+  onUnknownAction?: (request: TRequest) => MaybePromise<MaybeResponse<TResponse>>;
 };
 
 /**
@@ -23,7 +26,7 @@ type RouterOptions<TRequest extends ActionRequest, TResponse> = {
 export function createRequestRouter<TRequest extends ActionRequest, TResponse>(
   options: RouterOptions<TRequest, TResponse> = {}
 ) {
-  const handlers = new Map<TRequest['action'], (request: TRequest) => TResponse>();
+  const handlers = new Map<TRequest['action'], (request: TRequest) => MaybePromise<MaybeResponse<TResponse>>>();
 
   return {
     register<TAction extends TRequest['action']>(
@@ -32,7 +35,7 @@ export function createRequestRouter<TRequest extends ActionRequest, TResponse>(
     ) {
       handlers.set(action, (request: TRequest) => handler(request as Extract<TRequest, { action: TAction }>));
     },
-    handle(request: TRequest): TResponse {
+    handle(request: TRequest): MaybePromise<MaybeResponse<TResponse>> {
       const handler = handlers.get(request.action);
       if (!handler) {
         if (options.onUnknownAction) {

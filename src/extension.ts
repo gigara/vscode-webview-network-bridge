@@ -26,7 +26,7 @@ type WebSocketLikeConstructor = new (url: string) => WebSocketLike;
 
 type InProcessProxyBridgeOptions<TRequest, TResponse> = {
   postMessage: (message: ProxyEnvelope) => void;
-  handleRequest: (request: TRequest) => TResponse;
+  handleRequest: (request: TRequest) => TResponse | void | Promise<TResponse | void>;
   deserialize?: (payload: string) => TRequest;
   serialize?: (payload: TResponse) => string;
   onConnect?: () => TResponse | undefined;
@@ -40,7 +40,7 @@ type WsProxyBridgeOptions = {
 
 type WebSocketBackendOptions<TRequest, TResponse> = {
   port?: number;
-  handleRequest: (request: TRequest) => TResponse;
+  handleRequest: (request: TRequest) => TResponse | void | Promise<TResponse | void>;
   deserialize?: (payload: string) => TRequest;
   serialize?: (payload: TResponse) => string;
   initialResponse?: () => TResponse | undefined;
@@ -54,7 +54,7 @@ type ExtensionTransportManagerOptions<TRequest, TResponse> = {
   /** Base URL used to derive bootstrap websocket host metadata. */
   wsUrlBase?: string;
   /** Core request handler for inbound messages. */
-  handleRequest: (request: TRequest) => TResponse;
+  handleRequest: (request: TRequest) => TResponse | void | Promise<TResponse | void>;
   /** Inbound payload parser override. */
   deserialize?: (payload: string) => TRequest;
   /** Outbound payload serializer override. */
@@ -231,13 +231,17 @@ function createInProcessProxyBridge<TRequest, TResponse>(
           break;
         }
         case 'ws-proxy.send': {
-          try {
+          const handle = async () => {
             const request = deserialize(message.payload);
-            const response = options.handleRequest(request);
-            options.postMessage({ channel: 'ws-proxy.message', payload: serialize(response) });
-          } catch {
+            const response = await options.handleRequest(request);
+            if (response !== undefined) {
+              options.postMessage({ channel: 'ws-proxy.message', payload: serialize(response) });
+            }
+          };
+
+          void handle().catch(() => {
             options.postMessage({ channel: 'ws-proxy.error', message: INVALID_JSON_PAYLOAD_ERROR });
-          }
+          });
           break;
         }
         case 'ws-proxy.disconnect': {
@@ -283,22 +287,30 @@ function createWsBackend<TRequest, TResponse>(options: WebSocketBackendOptions<T
     }
 
     socket.on('message', (raw) => {
-      try {
+      const handle = async () => {
         const text = toPayloadText(raw);
         const rpcRequest = tryParseRpcRequest(text);
         if (rpcRequest) {
           const request = deserialize(rpcRequest.payload);
-          const response = options.handleRequest(request);
+          const response = await options.handleRequest(request);
+          if (response === undefined) {
+            return;
+          }
           const serialized = serialize(response);
           socket.send(serializeRpcResponse(rpcRequest.id, serialized));
           return;
         }
 
         const request = deserialize(text);
-        broadcast(options.handleRequest(request));
-      } catch {
+        const response = await options.handleRequest(request);
+        if (response !== undefined) {
+          broadcast(response);
+        }
+      };
+
+      void handle().catch(() => {
         socket.send(JSON.stringify({ type: 'error', message: INVALID_JSON_PAYLOAD_ERROR }));
-      }
+      });
     });
   });
 
@@ -343,8 +355,14 @@ export function createExtensionTransportManager<TRequest, TResponse>(
     }
   };
 
-  const applyRequest = (request: TRequest, source: 'proxy' | 'websocket') => {
-    const response = options.handleRequest(request);
+  const resolveRequest = (request: TRequest) => Promise.resolve(options.handleRequest(request));
+
+  const applyRequest = async (request: TRequest, source: 'proxy' | 'websocket') => {
+    const response = await resolveRequest(request);
+    if (response === undefined) {
+      return undefined;
+    }
+
     publishToProxy(response);
 
     if (source !== 'websocket' && backend) {
@@ -406,23 +424,28 @@ export function createExtensionTransportManager<TRequest, TResponse>(
           break;
         }
         case 'ws-proxy.send': {
-          try {
+          const handle = async () => {
             const rpcRequest = tryParseRpcRequest(message.payload);
             if (rpcRequest) {
               const request = deserialize(rpcRequest.payload);
-              const response = options.handleRequest(request);
+              const response = await resolveRequest(request);
+              if (response === undefined) {
+                return;
+              }
               postMessage({
                 channel: 'ws-proxy.message',
                 payload: serializeRpcResponse(rpcRequest.id, serialize(response))
               });
-              break;
+              return;
             }
 
             const request = deserialize(message.payload);
-            applyRequest(request, 'proxy');
-          } catch {
+            await applyRequest(request, 'proxy');
+          };
+
+          void handle().catch(() => {
             postMessage({ channel: 'ws-proxy.error', message: INVALID_JSON_PAYLOAD_ERROR });
-          }
+          });
           break;
         }
         case 'ws-proxy.disconnect': {

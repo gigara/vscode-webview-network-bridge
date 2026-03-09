@@ -91,7 +91,7 @@ Import from `vscode-webview-network-bridge/extension`.
 | `options.initialMode` | `'proxy' \| 'websocket'` | No | `'proxy'` | Initial transport mode for manager state. |
 | `options.wsPort` | `number` | No | `8787` | Port used when manager starts its WebSocket server. |
 | `options.wsUrlBase` | `string` | No | `'ws://127.0.0.1'` | Base URL used for bootstrap metadata (`wsServer`, `wsPort`). |
-| `options.handleRequest` | `(request: TRequest) => TResponse` | Yes | — | Core request handler invoked for inbound proxy/WebSocket requests. |
+| `options.handleRequest` | `(request: TRequest) => TResponse \| void \| Promise<TResponse \| void>` | Yes | — | Core request handler invoked for inbound proxy/WebSocket requests. Supports sync/async handlers and notification-style `void` responses. |
 | `options.deserialize` | `(payload: string) => TRequest` | No | `JSON.parse` cast | Inbound payload parser. |
 | `options.serialize` | `(response: TResponse) => string` | No | `JSON.stringify` | Outbound payload serializer. |
 | `options.initialResponse` | `() => TResponse \| undefined` | No | — | Optional initial state message sent to new clients. |
@@ -125,14 +125,14 @@ Router methods:
 
 | Argument | Type | Required | Default | Description |
 |---|---|---:|---|---|
-| `options.onUnknownAction` | `(request: TRequest) => TResponse` | No | throws error | Fallback when no handler exists for `request.action`. |
+| `options.onUnknownAction` | `(request: TRequest) => TResponse \| void \| Promise<TResponse \| void>` | No | throws error | Fallback when no handler exists for `request.action`. |
 
 #### `register(action, handler)` arguments
 
 | Argument | Type | Required | Description |
 |---|---|---:|---|
 | `action` | `TRequest['action']` | Yes | Action key used for dispatch lookup. |
-| `handler` | `(request: Extract<TRequest, { action: TAction }>) => TResponse` | Yes | Action-specific typed handler. |
+| `handler` | `(request: Extract<TRequest, { action: TAction }>) => TResponse \| void \| Promise<TResponse \| void>` | Yes | Action-specific typed handler. |
 
 ## Usage Examples
 
@@ -179,6 +179,7 @@ adapter.send({ action: 'ping' });
 
 // Request/response (correlated RPC-style call).
 const response = await adapter.request({ action: 'ping' });
+
 ```
 
 ### Extension Side
@@ -188,7 +189,7 @@ import { createExtensionTransportManager } from 'vscode-webview-network-bridge/e
 
 // Manager owns proxy/websocket handling and request routing.
 const transport = createExtensionTransportManager<Request, Response>({
-  handleRequest: (request) => handler(request),
+  handleRequest: async (request) => handlerAsync(request),
   initialResponse: () => ({ type: 'pong', at: new Date().toISOString() })
 });
 
