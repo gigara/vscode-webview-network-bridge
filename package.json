@@ -1,6 +1,6 @@
 {
   "name": "vscode-webview-network-bridge",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Transport bridge for VS Code extension ↔ webview communication over postMessage and optional WebSocket, with request-response support.",
   "license": "MIT",
   "repository": "https://github.com/gigara/vscode-webview-network-bridge",

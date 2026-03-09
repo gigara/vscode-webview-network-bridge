@@ -17,12 +17,76 @@ export type { VSCodeCssVariableName, VSCodeCssVariables } from './vscodeCssVaria
 const DEFAULT_WS_SERVER = '127.0.0.1';
 const DEFAULT_WS_PORT = 8787;
 const VS_CODE_API_UNAVAILABLE_ERROR = 'VS Code API is not available.';
+const DEFAULT_SCROLLBAR_STYLE_ID = 'vscode-css-vars-scrollbar-style';
 
 export const DEFAULT_VSCODE_CSS_VARIABLES: VSCodeCssVariables = {
   ...VSCODE_DARK_PLUS_CSS_VARIABLES
 };
 
 export type VSCodeCssTheme = 'dark' | 'light';
+
+type ScrollbarStyleOptions = {
+  styleId?: string;
+  targetDocument?: Document;
+};
+
+const VSCODE_SCROLLBAR_STYLE_CSS = `
+html {
+  scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: var(--vscode-scrollbar-background, transparent);
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: var(--vscode-scrollbar-background, transparent);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active,
+*::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+  background-clip: content-box;
+}
+`;
+
+export function injectVSCodeScrollbarStyles(options: ScrollbarStyleOptions = {}) {
+  const targetDocument = options.targetDocument ?? document;
+  const styleId = options.styleId ?? DEFAULT_SCROLLBAR_STYLE_ID;
+  const existing = targetDocument.getElementById(styleId);
+  if (existing instanceof HTMLStyleElement) {
+    return existing;
+  }
+
+  const styleElement = targetDocument.createElement('style');
+  styleElement.id = styleId;
+  styleElement.textContent = VSCODE_SCROLLBAR_STYLE_CSS;
+  targetDocument.head.appendChild(styleElement);
+  return styleElement;
+}
 
 /**
  * Injects VS Code-style CSS custom properties into the current document.
@@ -33,7 +97,8 @@ export type VSCodeCssTheme = 'dark' | 'light';
 export function injectVSCodeCssVariables(
   overrides: VSCodeCssVariables = {},
   target: HTMLElement = document.documentElement,
-  theme: VSCodeCssTheme = 'dark'
+  theme: VSCodeCssTheme = 'dark',
+  injectScrollbarStyles = true
 ) {
   const themeDefaults = theme === 'light' ? VSCODE_LIGHT_PLUS_CSS_VARIABLES : VSCODE_DARK_PLUS_CSS_VARIABLES;
 
@@ -48,6 +113,10 @@ export function injectVSCodeCssVariables(
     }
 
     target.style.setProperty(name, value);
+  }
+
+  if (injectScrollbarStyles) {
+    injectVSCodeScrollbarStyles({ targetDocument: target.ownerDocument ?? document });
   }
 
   return variables;

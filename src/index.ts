@@ -8,6 +8,7 @@ export { createRequestRouter } from './router';
 export {
 	createWebviewTransportAdapter,
 	injectVSCodeCssVariables,
+	injectVSCodeScrollbarStyles,
 	DEFAULT_VSCODE_CSS_VARIABLES,
 	VSCODE_DARK_PLUS_CSS_VARIABLES,
 	VSCODE_LIGHT_PLUS_CSS_VARIABLES
